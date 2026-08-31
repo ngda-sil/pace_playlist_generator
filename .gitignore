@@ -2,3 +2,5 @@ __*
 .env
 venv/
 AGENTS.md
+pyproject.toml
+*.egg-info
