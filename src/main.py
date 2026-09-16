@@ -1,5 +1,6 @@
 import argparse
 
+import playlist_planner
 import spotify_client
 from models import IntervalSession
 
@@ -16,8 +17,14 @@ def parse_user_args():
     parser.add_argument("rep", help="number of repetitions", type=int)
 
     args = parser.parse_args()
-
-    return IntervalSession(args.dist_m, args.m_pace, args.s_pace, args.rest_s, args.rep)
+    try:
+        interval = IntervalSession(
+            args.dist_m, args.m_pace, args.s_pace, args.rest_s, args.rep
+        )
+    except ValueError as e:
+        print(e)
+        return False
+    return interval
 
 
 def auth_spotify():
@@ -28,28 +35,15 @@ def auth_spotify():
     return auth_dic
 
 
-def select_matching_songs(interval, auth_tokens):
-    """Find user's songs matching the interval and rest duration with ±5sec margin."""
-    matching_songs = []
-    items = spotify_client.get_liked_songs(auth_tokens)
-    for item in items:
-        if (
-            interval.effort_duration_ms - 5000
-            < item["track"]["duration_ms"]
-            < interval.effort_duration_ms + 5000
-        ):
-            print(item["track"]["name"])
-            matching_songs.append(item["track"]["uri"])
-        if len(matching_songs) == interval.rep:
-            break
-    return matching_songs
-
-
-def create_playlist(matching_songs, auth_tokens):
+def create_playlist(interval, auth_tokens):
     """Create a playlist with the songs alternating interval and rest matching songs."""
+
     r_new_playlist = spotify_client.create_new_playlist(auth_tokens)
     if r_new_playlist.status_code == 201:
         print("New playlist created")
+
+    items = spotify_client.get_liked_songs(auth_tokens)
+    matching_songs = playlist_planner.select_matching_songs(interval, items)
 
     playlist_id = r_new_playlist.json()["id"]
     r_final_playlist = spotify_client.add_matching_songs_to_new_playlist(
@@ -63,10 +57,11 @@ def create_playlist(matching_songs, auth_tokens):
 def main():
 
     interval = parse_user_args()
+    if interval is False:
+        return
     print(interval)
     auth_tokens = auth_spotify()
-    matching_songs = select_matching_songs(interval, auth_tokens)
-    create_playlist(matching_songs, auth_tokens)
+    create_playlist(interval, auth_tokens)
 
 
 if __name__ == "__main__":
