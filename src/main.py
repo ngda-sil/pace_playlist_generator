@@ -42,8 +42,14 @@ def create_playlist(interval, auth_tokens):
     if r_new_playlist.status_code == 201:
         print("New playlist created")
 
-    items = spotify_client.get_liked_songs(auth_tokens)
-    matching_songs = playlist_planner.select_matching_songs(interval, items)
+    matching_songs = []
+    i = 0
+    while len(matching_songs) < interval.rep:
+        items = spotify_client.get_liked_songs(auth_tokens, i)
+        matching_songs = playlist_planner.select_matching_songs(
+            interval, items, matching_songs
+        )
+        i = +1
 
     playlist_id = r_new_playlist.json()["id"]
     r_final_playlist = spotify_client.add_matching_songs_to_new_playlist(

@@ -1,5 +1,4 @@
-def select_matching_songs(interval, items):
-    matching_songs = []
+def select_matching_songs(interval, items, matching_songs):
     for item in items:
         if (
             interval.effort_duration_ms - 5000
