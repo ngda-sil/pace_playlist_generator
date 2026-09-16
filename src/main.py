@@ -1,5 +1,6 @@
 import argparse
 
+import spotify_client
 from models import IntervalSession
 
 
@@ -19,27 +20,51 @@ def parse_user_args():
     return IntervalSession(args.dist_m, args.m_pace, args.s_pace, args.rest_s, args.rep)
 
 
-def auth_spotify(auth_tokens):
+def auth_spotify():
     """Connect to Spotify API with user authentification."""
-    pass
+    code = spotify_client.request_user_authorization()
+    auth_dic = spotify_client.request_access_token(code)
+
+    return auth_dic
 
 
 def select_matching_songs(interval, auth_tokens):
     """Find user's songs matching the interval and rest duration with ±5sec margin."""
-    pass
+    matching_songs = []
+    items = spotify_client.get_liked_songs(auth_tokens)
+    for item in items:
+        if (
+            interval.effort_duration_ms - 5000
+            < item["track"]["duration_ms"]
+            < interval.effort_duration_ms + 5000
+        ):
+            print(item["track"]["name"])
+            matching_songs.append(item["track"]["uri"])
+        if len(matching_songs) == interval.rep:
+            break
+    return matching_songs
 
 
 def create_playlist(matching_songs, auth_tokens):
     """Create a playlist with the songs alternating interval and rest matching songs."""
-    pass
+    r_new_playlist = spotify_client.create_new_playlist(auth_tokens)
+    if r_new_playlist.status_code == 201:
+        print("New playlist created")
+
+    playlist_id = r_new_playlist.json()["id"]
+    r_final_playlist = spotify_client.add_matching_songs_to_new_playlist(
+        auth_tokens, matching_songs, playlist_id
+    )
+
+    if r_final_playlist.status_code == 201:
+        print(f"Playlist ready: {r_new_playlist.json()["external_urls"]} ")
 
 
 def main():
-    auth_tokens = {}
 
     interval = parse_user_args()
     print(interval)
-    auth_spotify(auth_tokens)
+    auth_tokens = auth_spotify()
     matching_songs = select_matching_songs(interval, auth_tokens)
     create_playlist(matching_songs, auth_tokens)
 
