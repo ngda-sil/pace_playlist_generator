@@ -20,11 +20,38 @@ code_challenge = pkce.get_code_challenge(code_verifier)
 
 class RequestHandler(BaseHTTPRequestHandler):
 
+    def log_message(self, format, *args):
+        pass
+
+    def log_error(self, format, *args):
+        pass
+
+    def log_request(self, code="-", size="-"):
+        pass
+
     # Implementer use_case user refuse
     def do_GET(self):
-        self.server.code = urllib.parse.parse_qs(self.path)["/callback?code"]
-        message = "Thank you ! You can close this page"
-        self.send_response_only(200, message)
+        queries = urllib.parse.parse_qs(self.path)
+        try:
+            if "/callback?code" not in queries:
+                raise KeyError("Connection to Spotify not authorized by user")
+        except KeyError:
+            self.send_response_only(200)
+            self.end_headers()
+            self.wfile.write(b"""<html>
+            <head>
+                    <title>Pacer Playlist Generator</title>
+            </head>
+            <body>
+                    <h1>Authentification refused !</h1>
+                 <p>You can close this page.</p>
+         </body>
+        </html>""")
+            self.server.code = None
+            return
+
+        self.server.code = queries["/callback?code"]
+        self.send_response_only(200)
         self.end_headers()
         self.wfile.write(b"""<html>
         <head>
@@ -32,9 +59,9 @@ class RequestHandler(BaseHTTPRequestHandler):
         </head>
         <body>
                 <h1>Authentification Done !</h1>
-                <p>You can close this page.</p>
-        </body>
-</html>""")
+             <p>You can close this page.</p>
+     </body>
+    </html>""")
 
 
 def request_user_authorization():
@@ -59,6 +86,8 @@ def request_user_authorization():
     with HTTPServer(server_address, RequestHandler) as callback_s:
         callback_s.handle_request()
         code = callback_s.code
+    if code is None:
+        raise KeyError("Connection to Spotify not authorized by user")
     return code
 
 
@@ -76,7 +105,10 @@ def request_access_token(code):
     r = requests.post(
         "https://accounts.spotify.com/api/token", data=data, headers=headers
     )
-    return r.json()
+    if not r.ok:
+        r.raise_for_status()
+    else:
+        return r.json()
 
 
 def get_liked_songs(auth_tokens, i):
@@ -87,7 +119,10 @@ def get_liked_songs(auth_tokens, i):
     r = requests.get(
         f"https://api.spotify.com/v1/me/tracks?offset={50*i}&limit=50", headers=headers
     )
-    return r.json()["items"]
+    if not r.ok:
+        r.raise_for_status()
+    else:
+        return r.json()["items"]
 
 
 def create_new_playlist(auth_tokens):
@@ -106,8 +141,10 @@ def create_new_playlist(auth_tokens):
     r = requests.post(
         "https://api.spotify.com/v1/me/playlists", data=data, headers=headers
     )
-
-    return r
+    if not r.ok:
+        r.raise_for_status()
+    else:
+        return r
 
 
 def add_matching_songs_to_new_playlist(auth_tokens, matching_songs, playlist_id):
@@ -125,5 +162,7 @@ def add_matching_songs_to_new_playlist(auth_tokens, matching_songs, playlist_id)
         data=data,
         headers=headers,
     )
-
-    return r
+    if not r.ok:
+        r.raise_for_status()
+    else:
+        return r

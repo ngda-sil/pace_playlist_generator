@@ -17,13 +17,9 @@ def parse_user_args():
     parser.add_argument("rep", help="number of repetitions", type=int)
 
     args = parser.parse_args()
-    try:
-        interval = IntervalSession(
-            args.dist_m, args.m_pace, args.s_pace, args.rest_s, args.rep
-        )
-    except ValueError as e:
-        print(e)
-        return False
+    interval = IntervalSession(
+        args.dist_m, args.m_pace, args.s_pace, args.rest_s, args.rep
+    )
     return interval
 
 
@@ -31,7 +27,6 @@ def auth_spotify():
     """Connect to Spotify API with user authentification."""
     code = spotify_client.request_user_authorization()
     auth_dic = spotify_client.request_access_token(code)
-
     return auth_dic
 
 
@@ -49,7 +44,7 @@ def create_playlist(interval, auth_tokens):
         matching_songs = playlist_planner.select_matching_songs(
             interval, items, matching_songs
         )
-        i = +1
+        i += 1
 
     playlist_id = r_new_playlist.json()["id"]
     r_final_playlist = spotify_client.add_matching_songs_to_new_playlist(
@@ -62,12 +57,13 @@ def create_playlist(interval, auth_tokens):
 
 def main():
 
-    interval = parse_user_args()
-    if interval is False:
-        return
-    print(interval)
-    auth_tokens = auth_spotify()
-    create_playlist(interval, auth_tokens)
+    try:
+        interval = parse_user_args()
+        print(interval)
+        auth_tokens = auth_spotify()
+        create_playlist(interval, auth_tokens)
+    except Exception as e:
+        print(e)
 
 
 if __name__ == "__main__":
